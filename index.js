@@ -36,7 +36,7 @@ app.use(express.json());
   let systemMode = "auto"; // 'auto' or 'schedule'
 
   // ====== MQTT SETUP ======
-  const mqttBroker = "mqtt://192.168.0.101:1883";
+  const mqttBroker = "mqtt://145.79.10.235:1883";
   const mqttClient = mqtt.connect(mqttBroker);
 
   mqttClient.on("connect", () => {
