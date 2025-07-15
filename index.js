@@ -15,7 +15,7 @@ app.use(express.json());
   const db = await mysql.createPool({
     host: "localhost",
     user: "root",
-    password: "consep33t",
+    password: "Consep33t",
     database: "iot_ayam",
   });
 
