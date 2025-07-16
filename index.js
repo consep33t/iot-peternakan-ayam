@@ -35,12 +35,14 @@ const relayRoutes = require("./routes/relayRoutes");
 const modeRoutes = require("./routes/modeRoutes");
 const scheduleRoutes = require("./routes/scheduleRoutes");
 const feedLogsRoutes = require("./routes/feedLogsRoutes");
+const weightLogsRoutes = require("./routes/weightLogsRoutes");
 
 app.use("/api/sensor", sensorRoutes);
 app.use("/api/relay", relayRoutes);
 app.use("/api/mode", modeRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/feed-logs", feedLogsRoutes);
+app.use("/api/weight-logs", weightLogsRoutes);
 
 // Start server
 app.listen(port, () => {
