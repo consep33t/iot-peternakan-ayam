@@ -15,7 +15,7 @@ app.use(express.json());
   const db = await mysql.createPool({
     host: "localhost",
     user: "root",
-    password: "Consep33t",
+    password: "consep33t",
     database: "iot_ayam",
   });
 
@@ -33,10 +33,10 @@ app.use(express.json());
     water: "off",
   };
 
-  let systemMode = "auto"; // 'auto' or 'schedule'
+  let systemMode = "auto";
 
   // ====== MQTT SETUP ======
-  const mqttBroker = "mqtt://145.79.10.235:1883";
+  const mqttBroker = "mqtt://192.168.0.101:1883";
   const mqttClient = mqtt.connect(mqttBroker);
 
   mqttClient.on("connect", () => {
@@ -128,6 +128,26 @@ app.use(express.json());
   app.delete("/api/schedules/:id", async (req, res) => {
     const id = req.params.id;
     await db.query("DELETE FROM schedules WHERE id = ?", [id]);
+    res.json({ success: true });
+  });
+
+  app.put("/api/schedules/:id", async (req, res) => {
+    const id = req.params.id;
+    const { type, hour, minute, enabled } = req.body;
+
+    await db.query(
+      "UPDATE schedules SET type = ?, hour = ?, minute = ?, enabled = ? WHERE id = ?",
+      [type, hour, minute, enabled, id]
+    );
+
+    if (enabled == 1) {
+      const topic = `iot/ayam/schedule_${type}`;
+      mqttClient.publish(
+        topic,
+        JSON.stringify({ start_hour: hour, start_minute: minute })
+      );
+    }
+
     res.json({ success: true });
   });
 
