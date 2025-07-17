@@ -46,5 +46,52 @@ exports.updateSchedule = async (req, res) => {
     );
   }
 
+  exports.enableSchedule = async (req, res) => {
+    const { id } = req.params;
+
+    const [[schedule]] = await db.query(
+      "SELECT * FROM schedules WHERE id = ?",
+      [id]
+    );
+
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Schedule not found" });
+    }
+
+    await db.query("UPDATE schedules SET enabled = 1 WHERE id = ?", [id]);
+
+    const mqttClient = req.app.get("mqttClient");
+    mqttClient.publish(
+      `iot/ayam/schedule_${schedule.type}`,
+      JSON.stringify({
+        start_hour: schedule.hour,
+        start_minute: schedule.minute,
+      })
+    );
+
+    res.json({ success: true });
+  };
+
+  exports.disableSchedule = async (req, res) => {
+    const { id } = req.params;
+
+    const [[schedule]] = await db.query(
+      "SELECT * FROM schedules WHERE id = ?",
+      [id]
+    );
+
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Schedule not found" });
+    }
+
+    await db.query("UPDATE schedules SET enabled = 0 WHERE id = ?", [id]);
+
+    res.json({ success: true });
+  };
+
   res.json({ success: true });
 };
