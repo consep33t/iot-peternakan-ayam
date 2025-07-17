@@ -46,52 +46,51 @@ exports.updateSchedule = async (req, res) => {
     );
   }
 
-  exports.enableSchedule = async (req, res) => {
-    const { id } = req.params;
+  res.json({ success: true });
+};
 
-    const [[schedule]] = await db.query(
-      "SELECT * FROM schedules WHERE id = ?",
-      [id]
-    );
+exports.enableSchedule = async (req, res) => {
+  const { id } = req.params;
 
-    if (!schedule) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Schedule not found" });
-    }
+  // Ambil detail jadwal yang akan di-enable
+  const [[schedule]] = await db.query("SELECT * FROM schedules WHERE id = ?", [
+    id,
+  ]);
 
-    await db.query("UPDATE schedules SET enabled = 1 WHERE id = ?", [id]);
+  if (!schedule) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Schedule not found" });
+  }
 
-    const mqttClient = req.app.get("mqttClient");
-    mqttClient.publish(
-      `iot/ayam/schedule_${schedule.type}`,
-      JSON.stringify({
-        start_hour: schedule.hour,
-        start_minute: schedule.minute,
-      })
-    );
+  // Aktifkan jadwal
+  await db.query("UPDATE schedules SET enabled = 1 WHERE id = ?", [id]);
 
-    res.json({ success: true });
-  };
+  // Kirim via MQTT
+  const mqttClient = req.app.get("mqttClient");
+  mqttClient.publish(
+    `iot/ayam/schedule_${schedule.type}`,
+    JSON.stringify({ start_hour: schedule.hour, start_minute: schedule.minute })
+  );
 
-  exports.disableSchedule = async (req, res) => {
-    const { id } = req.params;
+  res.json({ success: true });
+};
 
-    const [[schedule]] = await db.query(
-      "SELECT * FROM schedules WHERE id = ?",
-      [id]
-    );
+exports.disableSchedule = async (req, res) => {
+  const { id } = req.params;
 
-    if (!schedule) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Schedule not found" });
-    }
+  const [[schedule]] = await db.query("SELECT * FROM schedules WHERE id = ?", [
+    id,
+  ]);
 
-    await db.query("UPDATE schedules SET enabled = 0 WHERE id = ?", [id]);
+  if (!schedule) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Schedule not found" });
+  }
 
-    res.json({ success: true });
-  };
+  // Nonaktifkan jadwal
+  await db.query("UPDATE schedules SET enabled = 0 WHERE id = ?", [id]);
 
   res.json({ success: true });
 };
