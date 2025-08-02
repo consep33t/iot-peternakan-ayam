@@ -47,7 +47,7 @@ const { updateRelayStatus } = require("./controllers/relayController");
 
 mqttClient.on("message", (topic, message) => {
   updateSensorData(topic, message, io);
-  updateRelayStatus(topic, message, io); // sekarang kita teruskan io
+  updateRelayStatus(topic, message, io);
 });
 
 // Routes

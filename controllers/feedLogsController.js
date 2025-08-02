@@ -30,15 +30,14 @@ exports.addFeedRefillLog = async (req, res) => {
 // Group by week
 exports.getFeedRefillLogsWeekly = async (_, res) => {
   const query = `
-   SELECT 
-  DATE(refill_time) AS date,
-  amount_kg,
-  YEAR(refill_time) AS year,
-  MONTH(refill_time) AS month,
-  FLOOR((DAY(refill_time) - 1) / 7) + 1 AS week_of_month
-FROM feed_refill_logs
-ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
-
+    SELECT 
+      refill_time AS date, -- gunakan datetime asli
+      amount_kg,
+      YEAR(refill_time) AS year,
+      MONTH(refill_time) AS month,
+      FLOOR((DAY(refill_time) - 1) / 7) + 1 AS week_of_month
+    FROM feed_refill_logs
+    ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
   `;
   try {
     const [results] = await db.query(query);
@@ -53,14 +52,12 @@ ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
 exports.getFeedRefillLogsMonthly = async (_, res) => {
   const query = `
     SELECT 
-  DATE(refill_time) AS date,
-  amount_kg,
-  YEAR(refill_time) AS year,
-  MONTH(refill_time) AS month
-FROM feed_refill_logs
-ORDER BY year DESC, month DESC, date DESC;
-
-
+      refill_time AS date, -- gunakan datetime asli
+      amount_kg,
+      YEAR(refill_time) AS year,
+      MONTH(refill_time) AS month
+    FROM feed_refill_logs
+    ORDER BY year DESC, month DESC, date DESC;
   `;
   try {
     const [results] = await db.query(query);

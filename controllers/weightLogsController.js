@@ -16,22 +16,19 @@ exports.getAllLogs = async (req, res) => {
 exports.getLogsPerWeek = async (req, res) => {
   try {
     const [rows] = await db.query(`
-           SELECT 
-  DATE(weigh_time) AS date,
-  weight_grams,
-  YEAR(weigh_time) AS year,
-  MONTH(weigh_time) AS month,
-
-  CEIL(
-    (DAY(weigh_time) + 
-     WEEKDAY(DATE_FORMAT(weigh_time, '%Y-%m-01'))
-    ) / 7
-  ) AS week_of_month
-
-FROM chicken_weight_logs
-ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
-
-        `);
+      SELECT 
+        weigh_time AS date,  -- tetap ambil datetime asli
+        weight_grams,
+        YEAR(weigh_time) AS year,
+        MONTH(weigh_time) AS month,
+        CEIL(
+          (DAY(weigh_time) + 
+          WEEKDAY(DATE_FORMAT(weigh_time, '%Y-%m-01'))
+          ) / 7
+        ) AS week_of_month
+      FROM chicken_weight_logs
+      ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -42,15 +39,14 @@ ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
 exports.getLogsPerMonth = async (req, res) => {
   try {
     const [rows] = await db.query(`
-            SELECT 
-  DATE(weigh_time) AS date,
-  weight_grams,
-  YEAR(weigh_time) AS year,
-  MONTH(weigh_time) AS month
-FROM chicken_weight_logs
-ORDER BY year DESC, month DESC, date DESC;
-
-        `);
+      SELECT 
+        weigh_time AS date,  -- gunakan datetime asli
+        weight_grams,
+        YEAR(weigh_time) AS year,
+        MONTH(weigh_time) AS month
+      FROM chicken_weight_logs
+      ORDER BY year DESC, month DESC, date DESC;
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
