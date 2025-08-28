@@ -22,7 +22,7 @@ const port = process.env.PORT;
 // ===== Middleware =====
 app.use(
   cors({
-    origin: "http://31.97.189.33:5173",
+    origin: "https://api.peternakan-ayam.site" || "http://localhost:5173",
     credentials: true,
   })
 );
