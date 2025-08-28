@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "https://api.peternakan-ayam.site" || "http://localhost:5173",
+    origin: "https://peternakan-ayam.site" || "http://localhost:5173",
     credentials: true,
   },
 });
@@ -22,7 +22,7 @@ const port = process.env.PORT;
 // ===== Middleware =====
 app.use(
   cors({
-    origin: "https://api.peternakan-ayam.site" || "http://localhost:5173",
+    origin: "https://peternakan-ayam.site" || "http://localhost:5173",
     credentials: true,
   })
 );
