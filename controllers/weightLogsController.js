@@ -1,90 +1,168 @@
-const db = require("../db/connection");
+const prisma = require("../config/prisma");
 
 // Get all logs
-exports.getAllLogs = async (req, res) => {
+exports.getAllLogs = async (req, res, next) => {
   try {
-    const [rows] = await db.query(
-      "SELECT * FROM chicken_weight_logs ORDER BY weigh_time DESC"
+    const logs = await prisma.chickenWeightLog.findMany({
+      orderBy: { weighTime: "desc" },
+    });
+    res.json(
+      logs.map((item) => ({
+        id: item.id,
+        weight_grams: item.weightGrams,
+        weigh_time: item.weighTime,
+      }))
     );
-    res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
 // Get logs per week
-exports.getLogsPerWeek = async (req, res) => {
+exports.getLogsPerWeek = async (req, res, next) => {
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        weigh_time AS date,  -- tetap ambil datetime asli
-        weight_grams,
-        YEAR(weigh_time) AS year,
-        MONTH(weigh_time) AS month,
-        CEIL(
-          (DAY(weigh_time) + 
-          WEEKDAY(DATE_FORMAT(weigh_time, '%Y-%m-01'))
-          ) / 7
-        ) AS week_of_month
-      FROM chicken_weight_logs
-      ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
-    `);
-    res.json(rows);
+    const logs = await prisma.chickenWeightLog.findMany({
+      orderBy: { weighTime: "desc" },
+    });
+
+    const results = logs.map((log) => {
+      const d = new Date(log.weighTime);
+      return {
+        date: log.weighTime,
+        weight_grams: log.weightGrams,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        week_of_month: Math.ceil(d.getDate() / 7),
+      };
+    });
+
+    res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
 // Get logs per month
-exports.getLogsPerMonth = async (req, res) => {
+exports.getLogsPerMonth = async (req, res, next) => {
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        weigh_time AS date,  -- gunakan datetime asli
-        weight_grams,
-        YEAR(weigh_time) AS year,
-        MONTH(weigh_time) AS month
-      FROM chicken_weight_logs
-      ORDER BY year DESC, month DESC, date DESC;
-    `);
-    res.json(rows);
+    const logs = await prisma.chickenWeightLog.findMany({
+      orderBy: { weighTime: "desc" },
+    });
+
+    const results = logs.map((log) => {
+      const d = new Date(log.weighTime);
+      return {
+        date: log.weighTime,
+        weight_grams: log.weightGrams,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+      };
+    });
+
+    res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
 // Get logs by custom date range
-exports.getLogsByRange = async (req, res) => {
+exports.getLogsByRange = async (req, res, next) => {
   const { start, end } = req.query;
   if (!start || !end) {
     return res
       .status(400)
       .json({ error: "start and end query parameters are required" });
   }
+
   try {
-    const [rows] = await db.query(
-      "SELECT * FROM chicken_weight_logs WHERE weigh_time BETWEEN ? AND ? ORDER BY weigh_time DESC",
-      [start, end]
+    const logs = await prisma.chickenWeightLog.findMany({
+      where: {
+        weighTime: {
+          gte: new Date(start),
+          lte: new Date(end),
+        },
+      },
+      orderBy: { weighTime: "desc" },
+    });
+
+    res.json(
+      logs.map((item) => ({
+        id: item.id,
+        weight_grams: item.weightGrams,
+        weigh_time: item.weighTime,
+      }))
     );
-    res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-// Post new log
-exports.createLog = async (req, res) => {
-  const { weight_grams } = req.body;
-  if (!weight_grams) {
-    return res.status(400).json({ error: "weight_grams is required" });
-  }
+// Post new log (Supports weight_grams, weightGrams, weight, berat, gram, val, value, or raw numbers)
+exports.createLog = async (req, res, next) => {
   try {
-    const [result] = await db.query(
-      "INSERT INTO chicken_weight_logs (weight_grams) VALUES (?)",
-      [weight_grams]
-    );
-    res.status(201).json({ id: result.insertId, weight_grams });
+    let body = req.body;
+
+    // Handle plain string or stringified JSON body from microcontrollers
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        if (!isNaN(parseFloat(body))) {
+          body = { weight_grams: parseFloat(body) };
+        }
+      }
+    }
+
+    const rawWeight =
+      body?.weight_grams ??
+      body?.weightGrams ??
+      body?.weight ??
+      body?.berat ??
+      body?.gram ??
+      body?.weight_gram ??
+      body?.val ??
+      body?.value ??
+      (typeof body === "number" ? body : null);
+
+    const parsedWeight = parseFloat(rawWeight);
+
+    if (
+      rawWeight === undefined ||
+      rawWeight === null ||
+      rawWeight === "" ||
+      isNaN(parsedWeight)
+    ) {
+      return res.status(400).json({
+        error: "Parameter weight (berat) tidak ditemukan atau bernilai invalid.",
+        accepted_fields: [
+          "weight_grams",
+          "weightGrams",
+          "weight",
+          "berat",
+          "gram",
+          "val",
+          "value",
+        ],
+        received: req.body,
+      });
+    }
+
+    const newLog = await prisma.chickenWeightLog.create({
+      data: {
+        weightGrams: parsedWeight,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Catatan berat timbangan berhasil disimpan",
+      id: newLog.id,
+      weight_grams: newLog.weightGrams,
+      weightGrams: newLog.weightGrams,
+      weigh_time: newLog.weighTime,
+      weighTime: newLog.weighTime,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };

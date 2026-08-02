@@ -1,92 +1,167 @@
-const db = require("../db/connection");
+const prisma = require("../config/prisma");
 
-// Get all logs
-exports.getFeedRefillLogs = async (_, res) => {
+// Get all feed refill logs
+exports.getFeedRefillLogs = async (req, res, next) => {
   try {
-    const [results] = await db.query("SELECT * FROM feed_refill_logs");
-    res.json(results);
+    const logs = await prisma.feedRefillLog.findMany({
+      orderBy: { refillTime: "desc" },
+    });
+    // Map to API JSON structure expected by frontend
+    res.json(
+      logs.map((item) => ({
+        id: item.id,
+        amount_kg: item.amountKg,
+        refill_time: item.refillTime,
+      }))
+    );
   } catch (err) {
-    console.error("Error fetching feed logs:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };
 
-// Add new log
-exports.addFeedRefillLog = async (req, res) => {
-  const { amount_kg } = req.body;
-  const query = "INSERT INTO feed_refill_logs (amount_kg) VALUES (?)";
+// Add new log (Supports amount_kg, amountKg, amount, refill, jumlah, pakan, val, value, or raw numbers)
+exports.addFeedRefillLog = async (req, res, next) => {
   try {
-    const [results] = await db.query(query, [amount_kg]);
+    let body = req.body;
+
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        if (!isNaN(parseFloat(body))) {
+          body = { amount_kg: parseFloat(body) };
+        }
+      }
+    }
+
+    const rawAmount =
+      body?.amount_kg ??
+      body?.amountKg ??
+      body?.amount ??
+      body?.refill ??
+      body?.jumlah ??
+      body?.pakan ??
+      body?.val ??
+      body?.value ??
+      (typeof body === "number" ? body : null);
+
+    const parsedAmount = parseFloat(rawAmount);
+
+    if (
+      rawAmount === undefined ||
+      rawAmount === null ||
+      rawAmount === "" ||
+      isNaN(parsedAmount)
+    ) {
+      return res.status(400).json({
+        error: "Parameter amount_kg (pakan) tidak ditemukan atau bernilai invalid.",
+        accepted_fields: [
+          "amount_kg",
+          "amountKg",
+          "amount",
+          "refill",
+          "jumlah",
+          "pakan",
+          "val",
+          "value",
+        ],
+        received: req.body,
+      });
+    }
+
+    const newLog = await prisma.feedRefillLog.create({
+      data: {
+        amountKg: parsedAmount,
+      },
+    });
+
     res.status(201).json({
+      success: true,
       message: "Feed refill log added successfully",
-      logId: results.insertId,
+      logId: newLog.id,
+      amount_kg: newLog.amountKg,
+      amountKg: newLog.amountKg,
+      refill_time: newLog.refillTime,
     });
   } catch (err) {
-    console.error("Error adding feed refill log:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };
 
 // Group by week
-exports.getFeedRefillLogsWeekly = async (_, res) => {
-  const query = `
-    SELECT 
-      refill_time AS date, -- gunakan datetime asli
-      amount_kg,
-      YEAR(refill_time) AS year,
-      MONTH(refill_time) AS month,
-      FLOOR((DAY(refill_time) - 1) / 7) + 1 AS week_of_month
-    FROM feed_refill_logs
-    ORDER BY year DESC, month DESC, week_of_month DESC, date DESC;
-  `;
+exports.getFeedRefillLogsWeekly = async (req, res, next) => {
   try {
-    const [results] = await db.query(query);
+    const logs = await prisma.feedRefillLog.findMany({
+      orderBy: { refillTime: "desc" },
+    });
+
+    const results = logs.map((log) => {
+      const d = new Date(log.refillTime);
+      return {
+        date: log.refillTime,
+        amount_kg: log.amountKg,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        week_of_month: Math.floor((d.getDate() - 1) / 7) + 1,
+      };
+    });
+
     res.json(results);
   } catch (err) {
-    console.error("Error fetching weekly feed logs:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };
 
 // Group by month
-exports.getFeedRefillLogsMonthly = async (_, res) => {
-  const query = `
-    SELECT 
-      refill_time AS date, -- gunakan datetime asli
-      amount_kg,
-      YEAR(refill_time) AS year,
-      MONTH(refill_time) AS month
-    FROM feed_refill_logs
-    ORDER BY year DESC, month DESC, date DESC;
-  `;
+exports.getFeedRefillLogsMonthly = async (req, res, next) => {
   try {
-    const [results] = await db.query(query);
+    const logs = await prisma.feedRefillLog.findMany({
+      orderBy: { refillTime: "desc" },
+    });
+
+    const results = logs.map((log) => {
+      const d = new Date(log.refillTime);
+      return {
+        date: log.refillTime,
+        amount_kg: log.amountKg,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+      };
+    });
+
     res.json(results);
   } catch (err) {
-    console.error("Error fetching monthly feed logs:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };
 
-// Group by custom date range (from user input)
-exports.getFeedRefillLogsByRange = async (req, res) => {
+// Group by custom date range
+exports.getFeedRefillLogsByRange = async (req, res, next) => {
   const { start_date, end_date } = req.query;
   if (!start_date || !end_date) {
     return res
       .status(400)
       .json({ error: "start_date and end_date are required" });
   }
-  const query = `
-    SELECT refill_time, amount_kg
-    FROM feed_refill_logs
-    WHERE refill_time BETWEEN ? AND ?
-    ORDER BY refill_time ASC
-  `;
+
   try {
-    const [results] = await db.query(query, [start_date, end_date]);
-    res.json(results);
+    const logs = await prisma.feedRefillLog.findMany({
+      where: {
+        refillTime: {
+          gte: new Date(start_date),
+          lte: new Date(end_date),
+        },
+      },
+      orderBy: { refillTime: "asc" },
+    });
+
+    res.json(
+      logs.map((item) => ({
+        refill_time: item.refillTime,
+        amount_kg: item.amountKg,
+      }))
+    );
   } catch (err) {
-    console.error("Error fetching feed logs by range:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };

@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int         @id @default(autoincrement())
+  name      String      @db.VarChar(100)
+  email     String      @unique(map: "email") @db.VarChar(100)
+  password  String      @db.VarChar(255)
+  role      users_role? @default(user)
+  createdAt DateTime?   @default(now()) @map("created_at") @db.Timestamp(0)
+
+  @@map("users")
+}
+
+model Schedule {
+  id      Int            @id @default(autoincrement())
+  type    schedules_type
+  hour    Int
+  minute  Int
+  enabled Boolean?       @default(true)
+
+  @@map("schedules")
+}
+
+model FeedRefillLog {
+  id         Int       @id @default(autoincrement())
+  refillTime DateTime? @default(now()) @map("refill_time") @db.DateTime(0)
+  amountKg   Decimal   @map("amount_kg") @db.Decimal(5, 2)
+
+  @@map("feed_refill_logs")
+}
+
+model ChickenWeightLog {
+  id          Int       @id @default(autoincrement())
+  weighTime   DateTime? @default(now()) @map("weigh_time") @db.DateTime(0)
+  weightGrams Int       @map("weight_grams")
+
+  @@map("chicken_weight_logs")
+}
+
+enum schedules_type {
+  feed
+  water
+}
+
+enum users_role {
+  admin
+  user
+}
